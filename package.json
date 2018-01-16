@@ -2,6 +2,6 @@
   "name": "getBusInfomation",
   "version": "0.0.0",
   "dependencies": {
-    "node-fetch": "~1.7.3"
+    "node-fetch": "~1.7.3" 
   }
 }
