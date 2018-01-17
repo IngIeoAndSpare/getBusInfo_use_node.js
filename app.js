@@ -3,14 +3,15 @@ var readline = require('readline');
 var fetch = require('node-fetch');
 
 var oldCoorSet = [];
-
-
-const APIKEY = 'yourAPIKEY';
 let urlSet = [
     "http://ws.bus.go.kr/api/rest/busRouteInfo/getBusRouteList" + APIKEY + '&strSrch=',
     "http://ws.bus.go.kr/api/rest/buspos/getBusPosByRtid" + APIKEY + '&busRouteId=',
 
 ];
+const ROTATION_TIME = 15000;
+const SELECT_BUS_NUMBER = 1;
+const APIKEY = 'yourAPIKEY';
+
 var readInterface = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -29,7 +30,6 @@ function doFetch(url, hendler) {
         .then(function (res) {
             return res.text();
         }).then(function (body) {
-            //data = new tool['BusRouteId'](body);
             module.exports[hendler](body);
         });
 }
@@ -52,12 +52,11 @@ function getDataFromURL(res) {
         offset++;
     }
 
-    let url = urlSet[1] + BusIddata[0];
+    let url = urlSet[1] + BusIddata[SELECT_BUS_NUMBER];
     setInterval(function () {
         doFetch(url, 'BusLocationData');
-    }, 15000);
+    }, ROTATION_TIME);
 
-    //readLineEventHendler(1, '2. select bus' + tempString + '>', 'BusLocationData');
 }
 
 function BusLocationData(res) {
@@ -106,7 +105,6 @@ function readLineEventHendler(offset, questionString, hendler) {
     readInterface.prompt();
     readInterface.on('line', function (line) {
         let url = urlSet[offset] + (questionString.charAt(0) == 1 ? String(line) : data[Number(line)]);
-        console.log(url);
         doFetch(url, hendler);
     });
 }
