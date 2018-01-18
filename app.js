@@ -3,25 +3,53 @@ var readline = require('readline');
 var fetch = require('node-fetch');
 
 var oldCoorSet = [];
+var itemSet = [];
+var rotationNm = 0;
+
+const APIKEY = 'Your Key';
+const BUS_SELECT = 1;
+const ROTATION_TIME = 30000;
+const ROTATION_LIMIT = 500;
+
+
 let urlSet = [
     "http://ws.bus.go.kr/api/rest/busRouteInfo/getBusRouteList" + APIKEY + '&strSrch=',
     "http://ws.bus.go.kr/api/rest/buspos/getBusPosByRtid" + APIKEY + '&busRouteId=',
 
 ];
-const ROTATION_TIME = 15000;
-const SELECT_BUS_NUMBER = 1;
-const APIKEY = 'yourAPIKEY';
-
 var readInterface = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
+
+function jsonItemSet(busNumber, startTime) {
+    this.busnumber = busNumber;
+    this.startTime = startTime;
+    this.itemArray = [];
+}
+
+jsonItemSet.prototype = {
+    getJsonData: function () {
+        return {
+            busNumber: this.busnumber,
+            startTime: this.startTime,
+            busPosition: this.itemArray
+        };
+    },
+    getItemLength: function () {
+        return this.itemArray.length;
+    },
+    flushItemArray: function () {
+        this.itemArray.length = 0;
+    }
+}
 
 module.exports = {
     doFetch: doFetch,
     getDataFromURL: getDataFromURL,
     BusLocationData: BusLocationData,
 }
+
 
 readLineEventHendler(0, '1. busNm,busId>', 'getDataFromURL');
 
@@ -52,9 +80,11 @@ function getDataFromURL(res) {
         offset++;
     }
 
-    let url = urlSet[1] + BusIddata[SELECT_BUS_NUMBER];
+    let url = urlSet[1] + BusIddata[BUS_SELECT];
+
     setInterval(function () {
         doFetch(url, 'BusLocationData');
+        rotationNm++
     }, ROTATION_TIME);
 
 }
@@ -63,42 +93,58 @@ function BusLocationData(res) {
     let indata = [];
     let patten = /<[^>](.*?)>/gi;
     let tempPlainNo = res.match(/\<plainNo>.+?\<rtDist>/g);
-    let tempGps = res.match(/\<gpsX>.+?\<isFullFlag>/g)
+    let tempGps = res.match(/\<gpsX>.+?\<isFullFlag>/g);
     for (let i = 0; i < tempPlainNo.length; i++) {
         indata.push(tempPlainNo[i].replace(patten, " ").match(/\s.+?\s/g).concat(tempGps[i].replace(patten, " ").match(/\s.+?\s/g)));
     }
 
-    saveFile(indata);
+    if (itemSet.length == 0) {
+        let offset = 0;
+        for (let item of indata) {
+            let time = new Date();
+            let busNumber = (item[0].replace(/(^\s*)|(\s*$)/g, ''));
+            let startTime = time.getFullYear() + '년' + time.getMonth() + '월' + time.getDate() + '일' + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds();
+            itemSet[offset] = (new jsonItemSet(busNumber, startTime));
+            offset++;
+        }
+        offset = null;
+    }
+    stackBusInfo(indata);
 }
 
-function saveFile(busInfo) {
+function stackBusInfo(busInfo) {
 
     let offset = 0;
-    let item;
-    var time = new Date();
+    let date = new Date();
     for (let item of busInfo) {
         let gpsX = Number(item[3].replace(/(^\s*)|(\s*$)/g, ''));
         let gpsY = Number(item[4].replace(/(^\s*)|(\s*$)/g, ''));
-        let posX = Number(item[1].replace(/(^\s*)|(\s*$)/g, ''));
-        let posY = Number(item[2].replace(/(^\s*)|(\s*$)/g, ''));
-        let temp = {
-            busNm: (item[0].replace(/(^\s*)|(\s*$)/g, '')),
-            busPosX: posX,
-            busPosY: posY,
-            busGpsX: gpsX,
-            busGpsY: gpsY,
-            angle: getAngle(posX, posY, offset),
-            time: time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds()
+        let angle = getAngle(gpsX, gpsY, offset)
+        let time = date.getHours() + ":" + date.getMinutes() + ":" + date.getSeconds();
+        itemSet[offset].itemArray.push([gpsX, gpsY, angle, time]);
+        oldCoorSet[offset] = {
+            x: gpsX,
+            y: gpsY,
+            angle: angle
         };
-        
-        fs.appendFile(String(temp.busNm)+'.json', JSON.stringify(temp)+"\r\n", "utf-8", function(error){
-            if(error) throw error;
-        });
-        
-        oldCoorSet[offset] = temp;
         offset++;
     }
+
+    if (rotationNm > ROTATION_LIMIT) {
+        for(let offset = 0; offset < itemSet.length; offset ++){
+            appendFile(itemSet[offset].getJsonData());
+            itemSet[offset].flushItemArray();
+        }
+        rotationNm = 0;
+    }
+    console.log('rotation:'+rotationNm);
+    console.log('InputDataNm : '+itemSet[0].getItemLength());
+
 }
+
+
+//-------------------------------------------------------
+
 function readLineEventHendler(offset, questionString, hendler) {
 
     readInterface.setPrompt(questionString);
@@ -109,29 +155,36 @@ function readLineEventHendler(offset, questionString, hendler) {
     });
 }
 
+function appendFile(dataSet) {
+    fs.appendFile(String(dataSet.busNumber) + '.json', JSON.stringify(dataSet) + "\r\n", "utf-8", function (error) {
+        if (error) throw error;
+    });
+}
+//---------------------------------------------------------
+
 function getAngle(newCoordinateX, newCooordinateY, offset) {
     if (oldCoorSet[offset] === undefined)
         return null;
     ''
-    let angleFordegrees = Math.atan2(newCooordinateY - oldCoorSet[offset].busPosY, newCoordinateX - oldCoorSet[offset].busPosX) * 180 / Math.PI;
+    let angleFordegrees = Math.atan2(newCoordinateX - oldCoorSet[offset].x, newCooordinateY - oldCoorSet[offset].y) * 180 / Math.PI;
     if (angleFordegrees < 0 || angleFordegrees > 360)
         angleFordegrees = getCorrectionValue(angleFordegrees);
-    else if(angleFordegrees == 0){
-        if(oldCoorSet[offset].angle === null)
+    else if (angleFordegrees == 0) {
+        if (oldCoorSet[offset].angle === null)
             return 0;
         else
-            return oldCoorSet[offset].angle
+            return oldCoorSet[offset].angle;
     }
     return angleFordegrees;
 }
 
-function getCorrectionValue(angle){
+function getCorrectionValue(angle) {
     let angleValue = Math.abs(angle);
-    let rotation = parseInt(angleValue / 360)
+    let rotation = parseInt(angleValue / 360);
 
-    if(rotation > 1)
-        return angleValue - 360
+    if (rotation < 1)
+        return Math.abs(angleValue - 360);
     else
-        return angleValue - (360 * rotation)
+        return Math.abs(angleValue - (360 * rotation));
 
 }
