@@ -23,6 +23,14 @@
  }
 ```
 
+busPosition 은 순서대로 다음과 같은 정보를 가진다
+```{.no-highlight}
+[gpsX, gpsY, (북0도 기준 각도), 시간]
+```
+gps 좌표 정보는 EPSG:3857 를 따른다. 자세한건 [좌표계 설명](http://www.osgeo.kr/17)을 참고
+여기서 북0도 기준 각도는 그래프의 4분면을 생각하면 편하다. 예컨데 좌표 x,y (0,0) 을 기준으로 둔다면 (0,0) 과 (1,0) 의 차이는 90도가 되며 (0,0) (-1, 0) 은 270도 가 된다.  
+무조건 양수로 나오게 보정된 값이다.
+
 버스 API에 대한 이용은 다음 사이트를 참고
 [서울시 버스 API](http://www.gbis.go.kr/gbis2014/publicService.action?cmd=mBusLocation)
 
@@ -32,10 +40,14 @@
 API Key 얻는 것은 다음을 참고
 [공공 데이터 센터 API key](https://www.data.go.kr/dataset/15000332/openapi.do) 에서 로그인을 한 후, 활용신청을 하면 된다.
 
+사용하려면 node-fetch 가 필요하다. 다음을 참고
+[node-fetch](https://www.npmjs.com/package/node-fetch)
+
 당연히 node.js 기반이기에 아래와 같이 실행한다.
 ```{.no-highlight}
  file-path>node app.js
  1. busNm,busId> 버스번호 (ex 162, 5300 ...eta)
  start...
 ```
+
 아직 공부가 미숙하기에 코드상에 각 반복 횟수(ROTATION_LIMIT), 주기 시간(ROTATION_TIME), 버스 id(BUS_SELECT)을 직접 수정해야된다. readline 을 조금만 더 알았더라면!
