@@ -100,10 +100,10 @@ function BusLocationData(res) {
 
     if (itemSet.length == 0) {
         let offset = 0;
+
         for (let item of indata) {
-            let time = new Date();
             let busNumber = (item[0].replace(/(^\s*)|(\s*$)/g, ''));
-            let startTime = time.getFullYear() + '년' + time.getMonth() + '월' + time.getDate() + '일' + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds();
+            let startTime = getTime();
             itemSet[offset] = (new jsonItemSet(busNumber, startTime));
             offset++;
         }
@@ -131,14 +131,14 @@ function stackBusInfo(busInfo) {
     }
 
     if (rotationNm > ROTATION_LIMIT) {
-        for(let offset = 0; offset < itemSet.length; offset ++){
+        for (let offset = 0; offset < itemSet.length; offset++) {
             appendFile(itemSet[offset].getJsonData());
             itemSet[offset].flushItemArray();
         }
         rotationNm = 0;
     }
-    console.log('rotation:'+rotationNm);
-    console.log('InputDataNm : '+itemSet[0].getItemLength());
+    console.log('rotation:' + rotationNm);
+    console.log('InputDataNm : ' + itemSet[0].getItemLength());
 
 }
 
@@ -187,4 +187,18 @@ function getCorrectionValue(angle) {
     else
         return Math.abs(angleValue - (360 * rotation));
 
+}
+
+function getTime() {
+    let date = new Date();
+
+    let year = time.getFullYear();
+    let month = (time.getMonth() + 1 > 10 ? time.getMonth() + 1 : '0' + (time.getMonth() + 1));
+    let day = (time.getDate() > 10 ? time.getDate() : '0' + time.getDate());
+
+    let hours = (time.getHours() > 10 ? time.getHours() : '0' + time.getHours());
+    let minutes = (time.getMinutes() > 10 ? time.getMinutes() : '0' + time.getMinutes());
+    let second = (time.getSeconds() > 10 ? time.getSeconds() : '0' + time.getSeconds());
+
+    return year + '-' + month + '-' + day + 'T' + hours + ':' + minutes + ':' + second + 'Z';
 }
